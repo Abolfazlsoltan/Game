@@ -50,8 +50,25 @@ jobs:
       - name: Install Python dependencies
         run: python -m pip install --upgrade pip flet
 
-      - name: Build APK
-        run: flet build apk --verbose
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build APK (retry transient Maven rate limits)
+        shell: bash
+        run: |
+          for attempt in 1 2 3 4; do
+            echo "APK build attempt $attempt/4"
+            if flet build apk --verbose; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 4 ]; then
+              wait_seconds=$((attempt * 30))
+              echo "Build failed; waiting ${wait_seconds}s before retrying in case Maven Central is rate-limiting requests."
+              sleep "$wait_seconds"
+            fi
+          done
+          echo "APK build failed after 4 attempts."
+          exit 1
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
