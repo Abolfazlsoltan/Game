@@ -1,6 +1,15 @@
 # Road Racer — Flet Prototype
 
-A first visual prototype for a top-down car game built with Python and Flet.
+A small top-down driving game prototype built with Python and Flet.
+
+## Features
+
+- Detailed red car built from native Flet controls
+- Road with lane markings and roadside grass
+- Touch controls to steer left and right
+- Toggleable turbo speed
+- Distance counter and restart button
+- Android APK build through GitHub Actions
 
 ## Run locally
 
@@ -9,8 +18,8 @@ python -m pip install -r requirements.txt
 python main.py
 ```
 
-## Current scope
+## Build Android APK
 
-- Top-down car assembled from Flet controls
-- Basic road and lane markings
-- No driving controls or gameplay yet; the first stage focuses on the car's appearance.
+Every push to `main` starts the **Build Android APK** GitHub Actions workflow. When it succeeds, open the workflow run and download the `road-racer-apk` artifact.
+
+Workflow runs: https://github.com/Abolfazlsoltan/Game/actions/workflows/build-apk.yml
