@@ -34,13 +34,20 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
+      # The Ubuntu runner already includes Android command-line tools.
+      # Avoid setup-android, which tries to install the obsolete "tools" package.
       - name: Install Android packages
+        shell: bash
         run: |
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          if [ -z "$SDKMANAGER" ]; then
+            echo "sdkmanager not found under $SDK_ROOT/cmdline-tools"
+            exit 1
+          fi
+          echo "Using sdkmanager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Install Python dependencies
         run: python -m pip install --upgrade pip flet
