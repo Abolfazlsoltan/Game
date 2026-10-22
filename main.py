@@ -16,13 +16,12 @@ def shape(width, height, color, radius=8, **kwargs):
 
 
 def positioned(control, left=None, top=None, right=None, bottom=None):
-    return ft.Positioned(
-        left=left,
-        top=top,
-        right=right,
-        bottom=bottom,
-        content=control,
-    )
+    # در Flet، مختصات مستقیماً روی کنترل فرزند Stack قرار می‌گیرند.
+    control.left = left
+    control.top = top
+    control.right = right
+    control.bottom = bottom
+    return control
 
 
 def build_car():
