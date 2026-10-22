@@ -31,11 +31,9 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: "3.44.8"
           cache: true
 
-      # The Ubuntu runner already includes Android command-line tools.
-      # Avoid setup-android, which tries to install the obsolete "tools" package.
       - name: Install Android packages
         shell: bash
         run: |
