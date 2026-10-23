@@ -65,7 +65,8 @@ jobs:
               def update(self):
                   pass
               def run_task(self, task):
-                  task.close()
+                  # Do not start the asynchronous game loop in this synchronous smoke test.
+                  pass
 
           # Construct every screen control with the exact Flet version used by the build.
           main.build_car()
