@@ -33,7 +33,7 @@ def build_car():
     for x in (4, 94):
         for y in (34, 126):
             p.append(placed(shape(20, 43, "#101318", 7,
-                                  border=ft.Border.all(1, "#454B54")),
+                                  ),
                             x, y))
             p.append(placed(shape(4, 29, "#454B54", 2), x + 8, y + 7))
 
@@ -48,11 +48,11 @@ def build_car():
 
     # کاپوت، چراغ‌ها و شیشه‌ی جلو
     p.append(placed(shape(70, 48, "#D92A38", 19,
-                          border=ft.Border.all(1, "#F56A70")), 29, 18))
+                          ), 29, 18))
     p.append(placed(shape(46, 3, "#F58A8E", 2), 41, 29))
     for x in (26, 83):
         p.append(placed(shape(17, 7, "#FFF1B8", 3,
-                              border=ft.Border.all(1, "#FFFFFF")), x, 14))
+                              ), x, 14))
     p.append(placed(shape(
         65, 42, "#182E40", 12,
         
