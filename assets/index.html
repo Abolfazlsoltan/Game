@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Racing — Easy Drive</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #0a0d10;
+    font-family: "Segoe UI", Tahoma, system-ui, sans-serif;
+    user-select: none; -webkit-user-select: none;
+    touch-action: none; -webkit-tap-highlight-color: transparent;
+  }
+  #game { display: block; width: 100%; height: 100%; }
+
+  .help {
+    position: fixed; top: 14px; left: 14px;
+    color: #c8d8e8; font-size: 11px;
+    line-height: 1.75; opacity: .55;
+    pointer-events: none;
+    text-shadow: 0 1px 3px rgba(0,0,0,.85);
+  }
+  .help strong { color: #7ec4ff; }
+
+  .palette {
+    position: fixed; top: 14px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; gap: 5px;
+    padding: 6px; border-radius: 12px;
+    background: rgba(20,26,32,.7);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 4px 16px rgba(0,0,0,.4);
+    z-index: 10;
+  }
+  .palette button {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.25);
+    cursor: pointer; padding: 0;
+    transition: transform .15s, border-color .15s;
+  }
+  .palette button:hover { transform: scale(1.12); }
+  .palette button.active {
+    border-color: #fff;
+    box-shadow: 0 0 0 2px rgba(255,255,255,.4);
+  }
+
+  .controls-touch { position: fixed; inset: 0; pointer-events: none; display: none; z-index: 20; }
+  .controls-touch .touch-btn {
+    position: absolute;
+    width: 66px; height: 66px; border-radius: 50%;
+    background: rgba(255,255,255,.12);
+    border: 2px solid rgba(255,255,255,.3);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 22px; font-weight: 700;
+    pointer-events: auto; touch-action: none;
+    transition: background .08s, transform .08s;
+  }
+  .controls-touch .touch-btn.active {
+    background: rgba(100,180,255,.5);
+    border-color: rgba(160,215,255,.9);
+    transform: scale(.92);
+  }
+  /* فرمان سمت چپ */
+  .btn-left  { bottom: 24px; left: 16px; }
+  .btn-right { bottom: 24px; left: 92px; }
+  /* گاز و ترمز سمت راست */
+  .btn-brake { bottom: 24px; right: 92px; }
+  .btn-gas   { bottom: 24px; right: 16px; }
+
+  @media (pointer: coarse) {
+    .controls-touch { display: block; }
+    .help { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<div class="help">
+  <strong>W / ▲</strong> گاز &nbsp;·&nbsp; <strong>S / ▼</strong> ترمز<br>
+  <strong>A D / ◀ ▶</strong> فرمان &nbsp;·&nbsp; <strong>Space</strong> ترمز دستی<br>
+  <strong>R</strong> بازگشت به خط شروع
+</div>
+
+<div class="palette">
+  <button class="color-btn active" data-color="#1e6fd9" style="background:#1e6fd9"></button>
+  <button class="color-btn" data-color="#d63d3d" style="background:#d63d3d"></button>
+  <button class="color-btn" data-color="#16a05a" style="background:#16a05a"></button>
+  <button class="color-btn" data-color="#e8b423" style="background:#e8b423"></button>
+  <button class="color-btn" data-color="#2b3641" style="background:#2b3641"></button>
+  <button class="color-btn" data-color="#eef3f7" style="background:#eef3f7"></button>
+</div>
+
+<div class="controls-touch">
+  <div class="touch-btn btn-left"  data-key="ArrowLeft">◀</div>
+  <div class="touch-btn btn-right" data-key="ArrowRight">▶</div>
+  <div class="touch-btn btn-brake" data-key="ArrowDown">▼</div>
+  <div class="touch-btn btn-gas"   data-key="ArrowUp">▲</div>
+</div>
+
+<script>
+'use strict';
+
+/* =========================================================
+   CONFIG
+   ========================================================= */
+const CFG = {
+  ROAD_HALF: 250,          // نیم‌عرض جاده (خیلی عریض → رانندگی راحت)
+  SOFT_WALL: 90,           // حاشیه نرم بیرون جاده
+  MAX_SPEED_BASE: 300,     // سرعت پایه
+  MAX_SPEED_EXTRA: 430,    // سرعت اضافه‌ای که با نگه‌داشتن گاز اضافه می‌شود
+  MAX_REVERSE: 130,
+  ACCEL_BASE: 340,
+  ACCEL_EXTRA: 520,
+  BRAKE: 950,
+  ENGINE_BRAKE: 170,
+  DRAG: 0.00018,
+  TURN_RATE: 1.55,         // رادیان بر ثانیه در فرمان کامل
+  STEER_ATTACK: 5.5,       // نرمی چرخش فرمان (حرکات ریز)
+  STEER_RELEASE: 9.0,      // برگشت سریع فرمان
+  GRIP_ON: 0.94,
+  GRIP_OFF: 0.62,
+  GRIP_HANDBRAKE: 0.28,
+  GRIP_RATE: 20,
+  GAS_RISE: 0.26,          // ~۴ ثانیه تا حداکثر بوست
+  GAS_FALL: 0.55,
+};
+
+/* =========================================================
+   CANVAS
+   ========================================================= */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+
+/* =========================================================
+   TEXTURES
+   ========================================================= */
+function makePattern(base, count) {
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 128;
+  const t = c.getContext('2d');
+  t.fillStyle = base;
+  t.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < count; i++) {
+    const v = Math.random();
+    t.fillStyle = v > 0.5
+      ? 'rgba(255,255,255,' + (0.015 + Math.random() * 0.045) + ')'
+      : 'rgba(0,0,0,' + (0.02 + Math.random() * 0.05) + ')';
+    t.fillRect(Math.random() * 128, Math.random() * 128, 1 + Math.random() * 2, 1 + Math.random() * 2);
+  }
+  return ctx.createPattern(c, 'repeat');
+}
+const grassPattern = makePattern('#1b3a20', 1000);
+const roadPattern  = makePattern('#2b3038', 800);
+
+function hash(n) {
+  const s = Math.sin(n * 12.9898) * 43758.5453;
+  return s - Math.floor(s);
+}
+
+/* =========================================================
+   PARTICLES
+   ========================================================= */
+function makeSprite(rgb) {
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 64;
+  const t = c.getContext('2d');
+  const g = t.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, `rgba(${rgb},0.95)`);
+  g.addColorStop(0.4, `rgba(${rgb},0.5)`);
+  g.addColorStop(1, `rgba(${rgb},0)`);
+  t.fillStyle = g;
+  t.fillRect(0, 0, 64, 64);
+  return c;
+}
+const SMOKE_SPRITE = makeSprite('235,240,248');
+const DUST_SPRITE  = makeSprite('170,150,110');
+
+/* =========================================================
+   STATE
+   ========================================================= */
+const car = {
+  x: 0, y: 0, angle: 0,
+  vx: 0, vy: 0,
+  steer: 0,
+  color: '#1e6fd9',
+  slip: 0,
+  wheelSpin: 0,
+  onTrack: true,
+  speed: 0,
+};
+
+let gasHold = 0;
+let camAngle = 0;
+const camera = { x: 60, y: 0, zoom: 1.05, shake: 0 };
+
+const particles = [];
+const MAX_PARTICLES = 240;
+const keys = {};
+const touchKeys = {};
+
+/* =========================================================
+   INPUT
+   ========================================================= */
+window.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+  if (e.code === 'KeyR') resetCar();
+});
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+document.querySelectorAll('.touch-btn').forEach(btn => {
+  const key = btn.dataset.key;
+  const on  = e => { e.preventDefault(); touchKeys[key] = true;  btn.classList.add('active'); };
+  const off = e => { e.preventDefault(); touchKeys[key] = false; btn.classList.remove('active'); };
+  btn.addEventListener('touchstart', on,  { passive: false });
+  btn.addEventListener('touchend',   off, { passive: false });
+  btn.addEventListener('touchcancel',off, { passive: false });
+  btn.addEventListener('mousedown',  on);
+  btn.addEventListener('mouseup',    off);
+  btn.addEventListener('mouseleave', off);
+});
+
+document.querySelectorAll('.color-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    car.color = btn.dataset.color;
+    document.querySelectorAll('.color-btn').forEach(b => b.classList.toggle('active', b === btn));
+  });
+});
+
+/* =========================================================
+   PHYSICS — رانندگی آسان و روان
+   ========================================================= */
+function updatePhysics(dt) {
+  const gas    = !!(keys.KeyW || keys.ArrowUp    || touchKeys.ArrowUp);
+  const brake  = !!(keys.KeyS || keys.ArrowDown  || touchKeys.ArrowDown);
+  const left   = !!(keys.KeyA || keys.ArrowLeft  || touchKeys.ArrowLeft);
+  const right  = !!(keys.KeyD || keys.ArrowRight || touchKeys.ArrowRight);
+  const handbrake = !!keys.Space;
+
+  /* --- گاز تداومی: هرچه بیشتر نگه داری، سریع‌تر --- */
+  if (gas) gasHold = Math.min(1, gasHold + dt * CFG.GAS_RISE);
+  else     gasHold = Math.max(0, gasHold - dt * CFG.GAS_FALL);
+
+  /* --- فرمان نرم --- */
+  const steerIn = (right ? 1 : 0) - (left ? 1 : 0);
+  const steerRate = steerIn !== 0 ? CFG.STEER_ATTACK : CFG.STEER_RELEASE;
+  car.steer += (steerIn - car.steer) * Math.min(1, dt * steerRate);
+  if (Math.abs(car.steer) < 0.0015) car.steer = 0;
+
+  const cosA = Math.cos(car.angle);
+  const sinA = Math.sin(car.angle);
+  let vFwd = car.vx * cosA + car.vy * sinA;
+  let vLat = -car.vx * sinA + car.vy * cosA;
+
+  /* --- چرخش: از سرعت کم هم فرمان خوب می‌گیرد --- */
+  const absSpd = Math.abs(vFwd);
+  const turnFactor = Math.min(1, absSpd / 40);
+  const dirSign = vFwd >= 0 ? 1 : -1;
+  car.angle += car.steer * CFG.TURN_RATE * turnFactor * dirSign * dt;
+
+  /* --- سرعت هدف بر اساس مدت نگه‌داشتن گاز --- */
+  const maxSpeed = CFG.MAX_SPEED_BASE + CFG.MAX_SPEED_EXTRA * gasHold;
+  const accel    = CFG.ACCEL_BASE + CFG.ACCEL_EXTRA * gasHold;
+
+  if (gas) {
+    if (vFwd < -1) vFwd += CFG.BRAKE * dt;
+    else           vFwd += accel * dt;
+  } else if (brake) {
+    if (vFwd > 1) vFwd -= CFG.BRAKE * dt;
+    else          vFwd -= CFG.ACCEL_BASE * 0.55 * dt;
+  } else {
+    const eb = Math.min(Math.abs(vFwd), CFG.ENGINE_BRAKE * dt);
+    vFwd -= Math.sign(vFwd) * eb;
+  }
+
+  /* مقاومت هوا */
+  vFwd -= Math.sign(vFwd) * vFwd * vFwd * CFG.DRAG * dt;
+
+  /* محدودیت سرعت نرم */
+  if (vFwd > maxSpeed)       vFwd = Math.max(maxSpeed, vFwd - 500 * dt);
+  if (vFwd < -CFG.MAX_REVERSE) vFwd = Math.min(-CFG.MAX_REVERSE, vFwd + 500 * dt);
+
+  const nCos = Math.cos(car.angle);
+  const nSin = Math.sin(car.angle);
+
+  /* --- گریپ جانبی --- */
+  car.onTrack = Math.abs(car.y) < CFG.ROAD_HALF;
+  let grip = car.onTrack ? CFG.GRIP_ON : CFG.GRIP_OFF;
+  if (handbrake) grip = CFG.GRIP_HANDBRAKE;
+  vLat *= Math.exp(-grip * CFG.GRIP_RATE * dt);
+
+  /* --- ترکیب --- */
+  car.vx = nCos * vFwd - nSin * vLat;
+  car.vy = nSin * vFwd + nCos * vLat;
+
+  car.x += car.vx * dt;
+  car.y += car.vy * dt;
+
+  /* --- دیوار نرم کنار جاده --- */
+  const limit = CFG.ROAD_HALF + CFG.SOFT_WALL;
+  const ay = Math.abs(car.y);
+  if (ay > limit) {
+    const over = ay - limit;
+    const s = Math.sign(car.y);
+    car.vy -= s * Math.min(2400, 400 + over * 25) * dt;
+    const damp = Math.max(0.55, 1 - over * 0.003);
+    car.vx *= damp;
+    car.vy *= damp;
+    camera.shake = Math.max(camera.shake, Math.min(5, over * 0.04));
+    if (over > 220) {
+      car.y = s * (limit + 220);
+      car.vy = -s * Math.abs(car.vy) * 0.15;
+    }
+  }
+
+  car.speed = Math.hypot(car.vx, car.vy);
+  car.slip = Math.abs(vLat);
+  car.wheelSpin += vFwd * dt / 8;
+
+  /* --- دوربین همیشه پشت ماشین (ماشین دائماً رو به جلو) --- */
+  camAngle = car.angle;
+
+  const lookAhead = 50 + Math.min(120, car.speed * 0.16);
+  const tcx = car.x + nCos * lookAhead;
+  const tcy = car.y + nSin * lookAhead;
+  const k = Math.min(1, dt * 6);
+  camera.x += (tcx - camera.x) * k;
+  camera.y += (tcy - camera.y) * k;
+
+  const targetZoom = 1.05 - Math.min(0.25, car.speed * 0.00035);
+  camera.zoom += (targetZoom - camera.zoom) * Math.min(1, dt * 3);
+
+  if (camera.shake > 0) camera.shake = Math.max(0, camera.shake - dt * 40);
+
+  emitTireEffects(vFwd, vLat, handbrake);
+  updateParticles(dt);
+}
+
+/* =========================================================
+   PARTICLES
+   ========================================================= */
+function emitTireEffects(vFwd, vLat, handbrake) {
+  const speed = Math.abs(vFwd);
+  const slip = Math.abs(vLat);
+
+  const cosA = Math.cos(car.angle);
+  const sinA = Math.sin(car.angle);
+  const rearX = car.x - cosA * 42;
+  const rearY = car.y - sinA * 42;
+  const pX = -sinA * 22;
+  const pY = cosA * 22;
+
+  const smoke = (handbrake && speed > 60) || slip > 60;
+  const dust = !car.onTrack && speed > 25;
+
+  if (smoke && particles.length < MAX_PARTICLES) {
+    for (const side of [-1, 1]) {
+      if (Math.random() < 0.6) {
+        particles.push({
+          x: rearX + pX * side,
+          y: rearY + pY * side,
+          vx: (Math.random() - 0.5) * 40 - car.vx * 0.08,
+          vy: (Math.random() - 0.5) * 40 - car.vy * 0.08,
+          size: 6 + Math.random() * 8,
+          grow: 22,
+          life: 0.8,
+          maxLife: 0.8,
+          drag: 0.92,
+          type: 'smoke',
+        });
+      }
+    }
+  }
+  if (dust && particles.length < MAX_PARTICLES) {
+    for (const side of [-1, 1]) {
+      if (Math.random() < 0.5) {
+        particles.push({
+          x: rearX + pX * side,
+          y: rearY + pY * side,
+          vx: (Math.random() - 0.5) * 60,
+          vy: (Math.random() - 0.5) * 60,
+          size: 4 + Math.random() * 6,
+          grow: 15,
+          life: 0.6,
+          maxLife: 0.6,
+          drag: 0.88,
+          type: 'dust',
+        });
+      }
+    }
+  }
+}
+
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.life -= dt;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vx *= Math.pow(p.drag, dt * 60);
+    p.vy *= Math.pow(p.drag, dt * 60);
+    p.size += p.grow * dt;
+  }
+}
+
+function resetCar() {
+  car.x = 0; car.y = 0; car.angle = 0;
+  car.vx = car.vy = 0;
+  car.steer = 0;
+  gasHold = 0;
+  camAngle = 0;
+  camera.x = 60; camera.y = 0;
+  camera.zoom = 1.05;
+  camera.shake = 0;
+  particles.length = 0;
+}
+
+/* =========================================================
+   WORLD RENDER
+   ========================================================= */
+function drawWorld() {
+  const R = Math.hypot(W, H) / (2 * camera.zoom) + 200;
+  const x0 = camera.x - R, x1 = camera.x + R;
+  const y0 = camera.y - R, y1 = camera.y + R;
+  const RH = CFG.ROAD_HALF;
+
+  /* چمن */
+  ctx.fillStyle = grassPattern;
+  ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+
+  /* آسفالت */
+  ctx.fillStyle = roadPattern;
+  ctx.fillRect(x0, -RH, x1 - x0, RH * 2);
+
+  /* حاشیه قرمز */
+  const curb = 16;
+  ctx.fillStyle = '#b5342f';
+  ctx.fillRect(x0, -RH - curb, x1 - x0, curb);
+  ctx.fillRect(x0,  RH,         x1 - x0, curb);
+
+  /* شطرنجی سفید روی حاشیه */
+  ctx.strokeStyle = 'rgba(240,235,225,0.95)';
+  ctx.lineWidth = curb;
+  ctx.setLineDash([30, 30]);
+  const dc = Math.floor(x0 / 60) * 60;
+  ctx.beginPath();
+  ctx.moveTo(dc, -RH - curb / 2); ctx.lineTo(x1, -RH - curb / 2);
+  ctx.moveTo(dc,  RH + curb / 2); ctx.lineTo(x1,  RH + curb / 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  /* خط سفید لبه */
+  ctx.strokeStyle = 'rgba(245,245,235,0.85)';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(x0, -RH + 7); ctx.lineTo(x1, -RH + 7);
+  ctx.moveTo(x0,  RH - 7); ctx.lineTo(x1,  RH - 7);
+  ctx.stroke();
+
+  /* خط وسط چین‌دار */
+  ctx.strokeStyle = 'rgba(235,230,215,0.5)';
+  ctx.lineWidth = 6;
+  ctx.setLineDash([60, 60]);
+  const dm = Math.floor(x0 / 120) * 120;
+  ctx.beginPath();
+  ctx.moveTo(dm, 0); ctx.lineTo(x1, 0);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  /* خط شروع */
+  const sx = 180;
+  if (sx > x0 - 80 && sx < x1 + 80) {
+    const tile = 30;
+    const cols = Math.ceil((RH * 2) / tile);
+    for (let r = 0; r < 2; r++) {
+      for (let c = 0; c < cols; c++) {
+        ctx.fillStyle = ((r + c) % 2 === 0) ? '#e8e8e0' : '#171717';
+        ctx.fillRect(sx + r * tile, -RH + c * tile, tile, tile);
+      }
+    }
+  }
+
+  /* درخت‌های کنار جاده */
+  const step = 200;
+  const i0 = Math.floor(x0 / step), i1 = Math.ceil(x1 / step);
+  for (let i = i0; i <= i1; i++) {
+    for (let s = -1; s <= 1; s += 2) {
+      const seed = i * 13.37 + (s > 0 ? 5.1 : 0);
+      const h1 = hash(seed), h2 = hash(seed + 7.3), h3 = hash(seed + 3.1);
+      const tx = i * step + h1 * 130 - 65;
+      const ty = s * (RH + 150 + h2 * 320);
+      const r = 16 + h3 * 26;
+
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.beginPath();
+      ctx.ellipse(tx + 10, ty + 12, r * 0.95, r * 0.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#1f4a26';
+      ctx.beginPath(); ctx.arc(tx, ty, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#2f6b35';
+      ctx.beginPath(); ctx.arc(tx - r * 0.28, ty - r * 0.28, r * 0.6, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
+/* =========================================================
+   CAR
+   ========================================================= */
+function drawCar(c) {
+  const cosA = Math.cos(car.angle);
+  const sinA = Math.sin(car.angle);
+
+  /* نور در فضای صفحه ثابت می‌ماند تا سایه‌ها نچرخند */
+  const theta = -Math.PI / 2 - camAngle;
+  let lightWX = 0.5 * Math.cos(theta) + 0.5 * Math.sin(theta);
+  let lightWY = -0.5 * Math.sin(theta) + 0.5 * Math.cos(theta);
+  const ll = Math.hypot(lightWX, lightWY) || 1;
+  lightWX /= ll; lightWY /= ll;
+
+  const lLx = lightWX * cosA + lightWY * sinA;
+  const lLy = -lightWX * sinA + lightWY * cosA;
+
+  /* سایه */
+  c.save();
+  c.translate(car.x + lightWX * 20, car.y + lightWY * 20);
+  c.rotate(car.angle);
+  c.filter = 'blur(12px)';
+  c.fillStyle = 'rgba(0,0,0,0.42)';
+  rr(c, -62, -26, 126, 52, 20);
+  c.fill();
+  c.filter = 'none';
+  c.restore();
+
+  c.save();
+  c.translate(car.x, car.y);
+  c.rotate(car.angle);
+
+  drawWheel(c,  42, -26, car.steer, car.wheelSpin);
+  drawWheel(c,  42,  26, car.steer, car.wheelSpin);
+  drawWheel(c, -42, -26, 0,          car.wheelSpin);
+  drawWheel(c, -42,  26, 0,          car.wheelSpin);
+
+  const bodyPath = () => {
+    c.beginPath();
+    c.moveTo(-54, -22);
+    c.quadraticCurveTo(-62, -22, -62, -14);
+    c.lineTo(-62, 14);
+    c.quadraticCurveTo(-62, 22, -54, 22);
+    c.lineTo(38, 24);
+    c.quadraticCurveTo(52, 24, 60, 14);
+    c.quadraticCurveTo(64, 6, 64, 0);
+    c.quadraticCurveTo(64, -6, 60, -14);
+    c.quadraticCurveTo(52, -24, 38, -24);
+    c.closePath();
+  };
+
+  const grad = c.createLinearGradient(lLx * 55, lLy * 55, -lLx * 55, -lLy * 55);
+  grad.addColorStop(0, shade(car.color, 0.5));
+  grad.addColorStop(0.5, car.color);
+  grad.addColorStop(1, shade(car.color, -0.5));
+  bodyPath();
+  c.fillStyle = grad;
+  c.fill();
+  c.strokeStyle = 'rgba(0,0,0,0.5)';
+  c.lineWidth = 1.5;
+  c.stroke();
+
+  /* شیشه جلو */
+  c.beginPath();
+  c.moveTo(14, -20);
+  c.lineTo(32, -16);
+  c.quadraticCurveTo(34, 0, 32, 16);
+  c.lineTo(14, 20);
+  c.quadraticCurveTo(11, 0, 14, -20);
+  c.closePath();
+  const wsG = c.createLinearGradient(lLx * 20 + 22, lLy * 20, -lLx * 20 + 22, -lLy * 20);
+  wsG.addColorStop(0, '#3d5872');
+  wsG.addColorStop(1, '#0a1520');
+  c.fillStyle = wsG;
+  c.fill();
+  c.strokeStyle = 'rgba(0,0,0,0.6)';
+  c.stroke();
+
+  /* سقف */
+  rr(c, -16, -18, 30, 36, 4);
+  const roofG = c.createLinearGradient(lLx * 25, lLy * 25, -lLx * 25, -lLy * 25);
+  roofG.addColorStop(0, shade(car.color, 0.35));
+  roofG.addColorStop(1, shade(car.color, -0.3));
+  c.fillStyle = roofG;
+  c.fill();
+  c.strokeStyle = 'rgba(0,0,0,0.3)';
+  c.stroke();
+
+  /* شیشه عقب */
+  c.beginPath();
+  c.moveTo(-34, -16);
+  c.lineTo(-16, -20);
+  c.quadraticCurveTo(-13, 0, -16, 20);
+  c.lineTo(-34, 16);
+  c.quadraticCurveTo(-37, 0, -34, -16);
+  c.closePath();
+  const rsG = c.createLinearGradient(lLx * 20 - 25, lLy * 20, -lLx * 20 - 25, -lLy * 20);
+  rsG.addColorStop(0, '#2a4259');
+  rsG.addColorStop(1, '#080f18');
+  c.fillStyle = rsG;
+  c.fill();
+  c.strokeStyle = 'rgba(0,0,0,0.6)';
+  c.stroke();
+
+  /* آینه */
+  c.fillStyle = shade(car.color, -0.15);
+  rr(c, 12, -32, 10, 5, 2); c.fill();
+  rr(c, 12,  27, 10, 5, 2); c.fill();
+  c.strokeStyle = 'rgba(0,0,0,0.4)'; c.stroke();
+
+  /* چراغ جلو */
+  c.save();
+  c.shadowColor = 'rgba(255,245,200,0.9)';
+  c.shadowBlur = 12;
+  c.fillStyle = '#fff8d0';
+  rr(c, 56, -22, 7, 9, 2); c.fill();
+  rr(c, 56,  13, 7, 9, 2); c.fill();
+  c.restore();
+
+  /* چراغ ترمز */
+  const braking = (keys.KeyS || keys.ArrowDown || keys.Space || touchKeys.ArrowDown) && car.speed > 5;
+  c.save();
+  c.shadowColor = braking ? 'rgba(255,60,60,1)' : 'rgba(255,40,40,0.6)';
+  c.shadowBlur = braking ? 20 : 8;
+  c.fillStyle = braking ? '#ff4444' : '#b91e1e';
+  rr(c, -62, -20, 5, 9, 1); c.fill();
+  rr(c, -62,  11, 5, 9, 1); c.fill();
+  c.restore();
+
+  /* هایلایت */
+  c.save();
+  bodyPath();
+  c.clip();
+  const hl = c.createRadialGradient(-lLx * 25, -lLy * 25, 0, -lLx * 25, -lLy * 25, 100);
+  hl.addColorStop(0, 'rgba(255,255,255,0.3)');
+  hl.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = hl;
+  c.fillRect(-70, -30, 140, 60);
+  c.restore();
+
+  c.restore();
+
+  /* نور چراغ‌ها در دنیا */
+  c.save();
+  c.translate(car.x, car.y);
+  c.rotate(car.angle);
+  for (const side of [-1, 1]) {
+    const bg = c.createLinearGradient(60, side * 17, 240, side * 70);
+    bg.addColorStop(0, 'rgba(255,240,180,0.14)');
+    bg.addColorStop(1, 'rgba(255,240,180,0)');
+    c.fillStyle = bg;
+    c.beginPath();
+    c.moveTo(58, side * 22);
+    c.lineTo(58, side * 12);
+    c.lineTo(240, side * 40);
+    c.lineTo(240, side * 95);
+    c.closePath();
+    c.fill();
+  }
+  c.restore();
+}
+
+function drawWheel(c, x, y, steer, spin) {
+  c.save();
+  c.translate(x, y);
+  c.rotate(steer);
+
+  c.fillStyle = '#0a0a0a';
+  rr(c, -13, -5, 26, 10, 2);
+  c.fill();
+
+  c.fillStyle = 'rgba(255,255,255,0.1)';
+  rr(c, -11, -4, 22, 3, 1);
+  c.fill();
+
+  c.save();
+  c.rotate(spin % (Math.PI * 2));
+  c.fillStyle = '#2a2a2a';
+  c.beginPath();
+  c.arc(0, 0, 4, 0, Math.PI * 2);
+  c.fill();
+  c.strokeStyle = '#555';
+  c.lineWidth = 1;
+  for (let i = 0; i < 4; i++) {
+    c.save();
+    c.rotate(i * Math.PI / 2);
+    c.beginPath();
+    c.moveTo(-4, 0);
+    c.lineTo(4, 0);
+    c.stroke();
+    c.restore();
+  }
+  c.restore();
+
+  c.restore();
+}
+
+function rr(c, x, y, w, h, r) {
+  if (typeof r === 'number') r = [r, r, r, r];
+  else if (r.length === 2) r = [r[0], r[1], r[0], r[1]];
+  else if (r.length === 3) r = [r[0], r[1], r[2], r[1]];
+
+  c.beginPath();
+  c.moveTo(x + r[0], y);
+  c.lineTo(x + w - r[1], y);
+  c.arcTo(x + w, y, x + w, y + r[1], r[1]);
+  c.lineTo(x + w, y + h - r[2]);
+  c.arcTo(x + w, y + h, x + w - r[2], y + h, r[2]);
+  c.lineTo(x + r[3], y + h);
+  c.arcTo(x, y + h, x, y + h - r[3], r[3]);
+  c.lineTo(x, y + r[0]);
+  c.arcTo(x, y, x + r[0], y, r[0]);
+  c.closePath();
+}
+
+function shade(hex, amt) {
+  let r = parseInt(hex.slice(1, 3), 16);
+  let g = parseInt(hex.slice(3, 5), 16);
+  let b = parseInt(hex.slice(5, 7), 16);
+  if (amt > 0) {
+    r += (255 - r) * amt; g += (255 - g) * amt; b += (255 - b) * amt;
+  } else {
+    r *= 1 + amt; g *= 1 + amt; b *= 1 + amt;
+  }
+  return `rgb(${r | 0},${g | 0},${b | 0})`;
+}
+
+/* =========================================================
+   RENDER
+   ========================================================= */
+function render() {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.fillStyle = '#0a0d10';
+  ctx.fillRect(0, 0, W, H);
+
+  let shX = 0, shY = 0;
+  if (camera.shake > 0.3) {
+    shX = (Math.random() - 0.5) * camera.shake;
+    shY = (Math.random() - 0.5) * camera.shake;
+  }
+
+  ctx.save();
+  ctx.translate(W / 2 + shX, H / 2 + shY);
+  ctx.rotate(-Math.PI / 2 - camAngle);   // ماشین همیشه رو به بالا (جلو)
+  ctx.scale(camera.zoom, camera.zoom);
+  ctx.translate(-camera.x, -camera.y);
+
+  drawWorld();
+
+  for (const p of particles) {
+    const alpha = Math.max(0, p.life / p.maxLife);
+    ctx.globalAlpha = alpha * (p.type === 'smoke' ? 0.55 : 0.6);
+    const sprite = p.type === 'smoke' ? SMOKE_SPRITE : DUST_SPRITE;
+    const sz = p.size * 2;
+    ctx.drawImage(sprite, p.x - sz / 2, p.y - sz / 2, sz, sz);
+  }
+  ctx.globalAlpha = 1;
+
+  drawCar(ctx);
+
+  ctx.restore();
+
+  /* وینیت */
+  const vig = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.7);
+  vig.addColorStop(0, 'rgba(0,0,0,0)');
+  vig.addColorStop(1, 'rgba(0,0,0,0.5)');
+  ctx.fillStyle = vig;
+  ctx.fillRect(0, 0, W, H);
+
+  drawHUD();
+}
+
+/* =========================================================
+   HUD — سرعت‌سنج کوچک، بدون کادر، بالا سمت راست
+   ========================================================= */
+function drawHUD() {
+  const kmh = Math.round(car.speed * 0.5);
+  const x = W - 16;
+  const y = 34;
+
+  ctx.save();
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'alphabetic';
+
+  ctx.font = '700 30px "Segoe UI", Tahoma, sans-serif';
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.fillText(kmh, x + 1.5, y + 1.5);
+  ctx.fillStyle = '#eaf4ff';
+  ctx.fillText(kmh, x, y);
+
+  ctx.font = '700 10px "Segoe UI", Tahoma, sans-serif';
+  ctx.fillStyle = 'rgba(150,200,250,0.7)';
+  ctx.fillText('KM/H', x, y + 15);
+
+  /* نوار نازک سرعت (بدون کادر) */
+  const bw = 88, bh = 3;
+  const bx = x - bw, by = y + 24;
+  ctx.fillStyle = 'rgba(255,255,255,0.16)';
+  ctx.fillRect(bx, by, bw, bh);
+
+  const f = Math.min(1, car.speed / 780);
+  ctx.fillStyle = f > 0.85 ? '#ff5a5a' : f > 0.6 ? '#ffb347' : '#57d2ff';
+  ctx.fillRect(bx, by, bw * f, bh);
+
+  ctx.restore();
+}
+
+/* =========================================================
+   RESIZE & LOOP
+   ========================================================= */
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+}
+window.addEventListener('resize', resize);
+resize();
+
+let lastT = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+  updatePhysics(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
