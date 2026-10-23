@@ -40,7 +40,7 @@ def build_car():
     # بدنه‌ی قرمز با لبه‌ی براق
     p.append(placed(shape(
         96, 196, "#B51F2B", 31,
-        border=ft.Border.all(2, "#F06A70"),
+        
         gradient=ft.LinearGradient(
             begin=ft.Alignment(-1, 0), end=ft.Alignment(1, 0),
             colors=["#7F101B", "#E52E3D", "#B51F2B"],
@@ -55,7 +55,7 @@ def build_car():
                               border=ft.Border.all(1, "#FFFFFF")), x, 14))
     p.append(placed(shape(
         65, 42, "#182E40", 12,
-        border=ft.Border.all(2, "#7193A7"),
+        
         gradient=ft.LinearGradient(
             begin=ft.Alignment(-1, -1), end=ft.Alignment(1, 1),
             colors=["#8CB9CE", "#31566D", "#152B3D"],
@@ -64,7 +64,7 @@ def build_car():
     p.append(placed(shape(68, 5, "#70131C", 2), 30, 113))
     p.append(placed(shape(
         62, 29, "#244357", 9,
-        border=ft.Border.all(2, "#7193A7"),
+        
         gradient=ft.LinearGradient(
             begin=ft.Alignment(-1, 0), end=ft.Alignment(1, 0),
             colors=["#6D9DB4", "#213F52"],
@@ -201,7 +201,7 @@ def main(page: ft.Page):
                         weight=ft.FontWeight.BOLD),
             ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=2),
             bgcolor=color, border_radius=18,
-            border=ft.Border.all(1, "#3C4B59"),
+            
             padding=ft.padding.symmetric(horizontal=18, vertical=10),
             on_click=handler, ink=True,
             expand=True,
