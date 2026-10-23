@@ -52,7 +52,7 @@ class _RacingGameScreenState extends State<RacingGameScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       backgroundColor: _gameBackground,
       body: SizedBox.expand(
         child: WebViewWidget(controller: _controller),
