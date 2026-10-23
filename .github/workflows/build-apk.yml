@@ -50,6 +50,30 @@ jobs:
       - name: Install Python dependencies
         run: python -m pip install --upgrade pip flet
 
+      - name: Smoke-test Flet controls before building APK
+        run: |
+          python - <<'PY'
+          from unittest.mock import patch
+          import flet as ft
+          import main
+
+          class FakePage:
+              width = 360
+              height = 720
+              def add(self, *controls):
+                  self.controls = controls
+              def update(self):
+                  pass
+              def run_task(self, task):
+                  task.close()
+
+          # Construct every screen control with the exact Flet version used by the build.
+          main.build_car()
+          with patch.object(ft.Control, "update", lambda self: None, create=True):
+              main.main(FakePage())
+          print("Flet control-construction smoke test passed.")
+          PY
+
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@v4
 
