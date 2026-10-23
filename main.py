@@ -179,7 +179,7 @@ def main(page: ft.Page):
         page.update()
 
     header = ft.Container(
-        padding=ft.padding.symmetric(horizontal=18, vertical=13),
+        padding=13,
         bgcolor="#17212B",
         content=ft.Row([
             ft.Column([
@@ -202,14 +202,14 @@ def main(page: ft.Page):
             ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=2),
             bgcolor=color, border_radius=18,
             
-            padding=ft.padding.symmetric(horizontal=18, vertical=10),
+            padding=10,
             on_click=handler, ink=True,
             expand=True,
         )
 
     controls = ft.Container(
         bgcolor="#17212B",
-        padding=ft.padding.only(left=14, right=14, top=10, bottom=14),
+        padding=14,
         content=ft.Column([
             ft.Row([
                 control_button(ft.Icons.ARROW_BACK_IOS_NEW, "چپ", move_left),
