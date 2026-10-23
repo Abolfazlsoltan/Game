@@ -11,16 +11,10 @@ permissions:
 jobs:
   build-apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -34,73 +28,38 @@ jobs:
           flutter-version: "3.44.8"
           cache: true
 
-      - name: Install Android packages
-        shell: bash
+      - name: Generate Android project files
+        run: flutter create --platforms=android --org ir.abolfazl --project-name road_racer .
+
+      - name: Set application display name
         run: |
-          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
-          if [ -z "$SDKMANAGER" ]; then
-            echo "sdkmanager not found under $SDK_ROOT/cmdline-tools"
-            exit 1
-          fi
-          echo "Using sdkmanager: $SDKMANAGER"
-          yes | "$SDKMANAGER" --licenses || true
-          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-
-      - name: Install Python dependencies
-        run: python -m pip install --upgrade pip flet
-
-      - name: Smoke-test Flet controls before building APK
-        run: |
-          python - <<'PY'
-          from unittest.mock import patch
-          import flet as ft
-          import main
-
-          class FakePage:
-              width = 360
-              height = 720
-              def add(self, *controls):
-                  self.controls = controls
-              def update(self):
-                  pass
-              def run_task(self, task):
-                  # Do not start the asynchronous game loop in this synchronous smoke test.
-                  pass
-
-          # Construct every screen control with the exact Flet version used by the build.
-          main.build_car()
-          with patch.object(ft.Control, "update", lambda self: None, create=True):
-              main.main(FakePage())
-          print("Flet control-construction smoke test passed.")
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("android/app/src/main/AndroidManifest.xml")
+          text = path.read_text(encoding="utf-8")
+          text = text.replace('android:label="road_racer"', 'android:label="Road Racer"')
+          path.write_text(text, encoding="utf-8")
           PY
 
-      - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@v4
+      - name: Install dependencies
+        run: flutter pub get
 
-      - name: Build APK (retry transient Maven rate limits)
-        shell: bash
-        run: |
-          for attempt in 1 2 3 4; do
-            echo "APK build attempt $attempt/4"
-            if flet build apk --verbose; then
-              exit 0
-            fi
-            if [ "$attempt" -lt 4 ]; then
-              wait_seconds=$((attempt * 30))
-              echo "Build failed; waiting ${wait_seconds}s before retrying in case Maven Central is rate-limiting requests."
-              sleep "$wait_seconds"
-            fi
-          done
-          echo "APK build failed after 4 attempts."
-          exit 1
+      - name: Check Dart formatting
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Analyze Flutter app
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test --no-pub
+
+      - name: Build release APK
+        run: flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: road-racer-apk
-          path: |
-            build/apk/*.apk
-            build/**/*.apk
+          name: road-racer-android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 14
