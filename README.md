@@ -1,25 +1,18 @@
-# Road Racer — Flet Prototype
+# Road Racer
 
-A small top-down driving game prototype built with Python and Flet.
+A full-screen Android version of the supplied **Racing — Easy Drive** game.
 
-## Features
+## Game
+- Original game HTML is kept in `assets/index.html`.
+- The HTML Canvas rendering, driving physics, camera, particles, color selection, speed display, and on-screen touch controls run inside an Android WebView.
+- The Flutter wrapper hides Android system bars to maximize the play area.
 
-- Detailed red car built from native Flet controls
-- Road with lane markings and roadside grass
-- Touch controls to steer left and right
-- Toggleable turbo speed
-- Distance counter and restart button
-- Android APK build through GitHub Actions
+## Build an APK
+Every push to `main` triggers GitHub Actions. The workflow generates the Android project, runs Dart formatting checks, analysis and tests, then builds a release APK.
 
-## Run locally
+To download the latest build:
+1. Open the repository's **Actions** tab.
+2. Open the latest successful **Build Android APK** run.
+3. Under **Artifacts**, download `road-racer-android-apk` and extract the APK.
 
-```bash
-python -m pip install -r requirements.txt
-python main.py
-```
-
-## Build Android APK
-
-Every push to `main` starts the **Build Android APK** GitHub Actions workflow. When it succeeds, open the workflow run and download the `road-racer-apk` artifact.
-
-Workflow runs: https://github.com/Abolfazlsoltan/Game/actions/workflows/build-apk.yml
+The artifact is temporary and is retained by GitHub Actions for 14 days.
