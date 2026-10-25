@@ -1,13 +1,15 @@
 # Road Racer Deluxe
 
-A full-screen, Persian-friendly top-down driving game packaged for Android with Flutter and an HTML Canvas engine.
+A full-screen, Persian-friendly perspective-view racing game packaged for Android with Flutter and an optimized HTML Canvas engine.
 
 ## Game modes
 - **Free Drive:** drive the closed circuit at your own pace.
 - **Time Trial:** complete three laps and view your total time and top speed.
 - **Traffic:** drive around the circuit with moving traffic and collision nudges.
 - Choose from six car colors before a session.
-- Mobile touch controls and keyboard controls (WASD / arrow keys, Space for handbrake, R to reset, Esc to pause).
+- Rear chase-camera perspective, shaded car body, roadside scenery, curbs and lane markers.
+- Mobile touch controls with corrected left/right placement, plus keyboard controls (WASD / arrow keys, Space for handbrake, R to reset, Esc to pause).
+- Performance-focused Canvas rendering, reduced pixel density on lower settings and less frequent HUD updates for smoother play on modest phones.
 - Pause/resume, reset, responsive HUD, speed display, lap timer, particles, trees, sound toggle/volume, steering sensitivity and graphics quality settings.
 
 ## Project layout
