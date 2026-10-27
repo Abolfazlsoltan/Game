@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: road-racer-apk
+  group: road-racer-apk-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   build-apk:
