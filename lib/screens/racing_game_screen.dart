@@ -21,9 +21,9 @@ class _RacingGameScreenState extends State<RacingGameScreen> with WidgetsBinding
       ..setBackgroundColor(gameBackground)
       ..setNavigationDelegate(NavigationDelegate(
         onWebResourceError: (WebResourceError error) {
-          if (!mounted || !(error.isForMainFrame ?? false)) return;
+          if (!mounted || error.isForMainFrame == false) return;
           setState(() => _loadFailed = true);
-          debugPrint('Road Racer WebView: ' + (error.description ?? 'unknown error'));
+          debugPrint('Road Racer WebView: ${error.description}');
         },
       ))
       ..loadFlutterAsset('assets/index.html');
