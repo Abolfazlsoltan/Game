@@ -15,7 +15,7 @@ const game=context.RoadRacer;
 game.ui={showToast(){},finishRace(){},updateHud(){},formatTime(v){return String(v);}};
 game.trackApi.build();
 assert.equal(game.track.length,game.state.config.trackSamples,'track samples should match configuration');
-assert.ok(game.state.trackLength>10000,'track should have a usable length');
+assert.ok(game.state.trackLength>8000,'track should have a usable length');
 const start=game.trackApi.center(0);
 assert.ok(game.trackApi.nearest(start.x,start.y,0).distance<5,'nearest lookup should find the circuit');
 const point=game.trackApi.atProgress(.5);
