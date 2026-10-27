@@ -1,22 +1,20 @@
 name: road_racer
-description: A smooth top-down racing game packaged for Android.
+description: A modular, touch-friendly perspective racing game built with Flutter and Canvas.
 publish_to: "none"
-version: 1.0.0+1
-
+version: 1.1.0+2
 environment:
   sdk: ">=3.3.0 <4.0.0"
-
 dependencies:
   flutter:
     sdk: flutter
   webview_flutter: ^4.14.1
-
 dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
-
 flutter:
   uses-material-design: true
   assets:
     - assets/index.html
+    - assets/css/
+    - assets/js/
