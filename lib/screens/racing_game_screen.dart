@@ -39,9 +39,11 @@ class _RacingGameScreenState extends State<RacingGameScreen>
     if (lifecycle == AppLifecycleState.inactive ||
         lifecycle == AppLifecycleState.paused ||
         lifecycle == AppLifecycleState.detached) {
-      _controller.runJavaScript(
+      _controller
+          .runJavaScript(
         "if (window.RoadRacer && window.RoadRacer.ui) window.RoadRacer.ui.pauseGame();",
-      ).catchError((Object error) {
+      )
+          .catchError((Object error) {
         debugPrint('Road Racer pause bridge: $error');
       });
     }
