@@ -27,7 +27,7 @@ class _RacingGameScreenState extends State<RacingGameScreen>
           onWebResourceError: (WebResourceError error) {
             if (!mounted || error.isForMainFrame == false) return;
             setState(() => _loadFailed = true);
-            debugPrint('Road Racer WebView: ' + error.description);
+            debugPrint('Road Racer WebView: ${error.description}');
           },
         ),
       )
