@@ -49,6 +49,8 @@ jobs:
           PY
       - name: Install dependencies
         run: flutter pub get
+      - name: Inspect Dart formatter output
+        run: dart format --output=show lib/screens/racing_game_screen.dart
       - name: Check Dart formatting
         run: dart format --output=none --set-exit-if-changed lib test
       - name: Analyze Flutter app
